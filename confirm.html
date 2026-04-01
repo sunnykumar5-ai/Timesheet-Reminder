@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timesheet Confirmation</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Arial, sans-serif;
+    background: #f4f6fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.10);
+    padding: 36px 32px;
+    max-width: 440px;
+    width: 100%;
+  }
+  .logo {
+    background: #1F3864;
+    color: #fff;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 15px;
+    font-weight: bold;
+    display: inline-block;
+    margin-bottom: 24px;
+  }
+  h2 { font-size: 18px; color: #1F3864; margin-bottom: 6px; }
+  .subtitle { font-size: 13px; color: #888; margin-bottom: 24px; }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: bold;
+    color: #444;
+    margin-bottom: 6px;
+  }
+  select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #333;
+    background: #fafafa;
+    margin-bottom: 20px;
+  }
+  select:focus { outline: none; border-color: #1F3864; }
+  .info-box {
+    background: #f0f4ff;
+    border-left: 4px solid #1F3864;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #333;
+    margin-bottom: 24px;
+    display: none;
+  }
+  .btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .btn-confirm { background: #1F7A3A; color: #fff; }
+  .btn-confirm:hover { background: #165c2b; }
+  .btn-confirm:disabled { background: #aaa; cursor: not-allowed; }
+  .status {
+    margin-top: 18px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    display: none;
+  }
+  .status.success { background: #C6EFCE; color: #375623; display: block; }
+  .status.error   { background: #FCE4D6; color: #9C0006; display: block; }
+  .status.loading { background: #FFF3CD; color: #856404; display: block; }
+  .week-info { font-size: 12px; color: #aaa; margin-top: 18px; text-align: center; }
+  .debug-box {
+    background: #f8f8f8;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 11px;
+    color: #888;
+    margin-top: 12px;
+    word-break: break-all;
+    display: none;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">Cognizant Timesheet</div>
+  <h2>Confirm Submission</h2>
+  <p class="subtitle">Week ending <span id="week-date">...</span></p>
+
+  <label for="member-select">Select your name</label>
+  <select id="member-select">
+    <option value="">-- Select your name --</option>
+  </select>
+
+  <div class="info-box" id="info-box">
+    Confirming submission for: <strong id="confirm-name"></strong><br>
+    Timesheet types: <span id="confirm-types"></span>
+  </div>
+
+  <button class="btn btn-confirm" id="confirm-btn" disabled onclick="confirmSubmission()">
+    Confirm - Yes I have submitted
+  </button>
+
+  <div class="status" id="status-msg"></div>
+  <div class="week-info" id="week-info"></div>
+  <div class="debug-box" id="debug-box"></div>
+</div>
+
+<script>
+  var flow2Base  = "";
+  var flow2Fixed = "";
+  var weekFriday = "";
+  var sheetName  = "";
+
+  function getParams() {
+    var result = {};
+    var qs = window.location.search.substring(1);
+    // handle both & and &amp; separators (Teams sometimes encodes &)
+    qs = qs.replace(/&amp;/g, "&");
+    qs.split("&").forEach(function(part) {
+      var eq = part.indexOf("=");
+      if (eq > -1) {
+        var key = decodeURIComponent(part.substring(0, eq).replace(/\+/g, " "));
+        var val = decodeURIComponent(part.substring(eq + 1).replace(/\+/g, " "));
+        result[key] = val;
+      }
+    });
+    return result;
+  }
+
+  function init() {
+    var params = getParams();
+
+    weekFriday  = params["week_friday"]  || "";
+    sheetName   = params["sheet_name"]   || "";
+    flow2Base   = params["flow2_base"]   || "";
+    flow2Fixed  = params["flow2_params"] || "";
+    var membersRaw = params["members"]   || "";
+
+    if (weekFriday) {
+      document.getElementById("week-date").textContent = weekFriday;
+      document.getElementById("week-info").textContent =
+        "Week: " + weekFriday + "  |  Sheet: " + sheetName;
+    }
+
+    // Parse pipe-separated members: id|name|types~~id|name|types
+    var members = [];
+    if (membersRaw) {
+      membersRaw.split("~~").forEach(function(entry) {
+        var parts = entry.split("|");
+        if (parts.length >= 3) {
+          members.push({
+            id   : parts[0].trim(),
+            name : parts[1].trim(),
+            types: parts[2].trim(),
+          });
+        }
+      });
+    }
+
+    // Show debug info if no members found
+    if (members.length === 0) {
+      var dbg = document.getElementById("debug-box");
+      dbg.style.display = "block";
+      dbg.textContent = "No members parsed. Raw members param: ["
+        + membersRaw + "] | Full URL: " + window.location.search;
+    }
+
+    var sel = document.getElementById("member-select");
+    members.forEach(function(m) {
+      var opt = document.createElement("option");
+      opt.value = m.id;
+      opt.textContent = m.name + " (" + m.id + ")";
+      opt.setAttribute("data-name",  m.name);
+      opt.setAttribute("data-types", m.types);
+      sel.appendChild(opt);
+    });
+
+    sel.addEventListener("change", function() {
+      var selected = sel.options[sel.selectedIndex];
+      var btn = document.getElementById("confirm-btn");
+      var box = document.getElementById("info-box");
+      if (sel.value) {
+        document.getElementById("confirm-name").textContent =
+          selected.getAttribute("data-name");
+        document.getElementById("confirm-types").textContent =
+          selected.getAttribute("data-types").replace(/,/g, ", ");
+        box.style.display = "block";
+        btn.disabled = false;
+      } else {
+        box.style.display = "none";
+        btn.disabled = true;
+      }
+      var s = document.getElementById("status-msg");
+      s.className = "status";
+      s.textContent = "";
+    });
+  }
+
+  function confirmSubmission() {
+    var sel     = document.getElementById("member-select");
+    var assocId = sel.value;
+    if (!assocId) return;
+
+    var selected  = sel.options[sel.selectedIndex];
+    var name      = selected.getAttribute("data-name");
+    var types     = selected.getAttribute("data-types");
+    var statusDiv = document.getElementById("status-msg");
+    var btn       = document.getElementById("confirm-btn");
+
+    if (!flow2Base || !flow2Fixed || !weekFriday || !sheetName) {
+      statusDiv.className = "status error";
+      statusDiv.textContent =
+        "Configuration error - missing parameters. Contact your admin.";
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Submitting...";
+    statusDiv.className = "status loading";
+    statusDiv.textContent = "Updating tracker for " + name + "...";
+
+    var perPerson =
+        "associate_id="     + encodeURIComponent(assocId)
+      + "&week_friday="     + encodeURIComponent(weekFriday)
+      + "&timesheet_types=" + encodeURIComponent(types)
+      + "&sheet_name="      + encodeURIComponent(sheetName);
+
+    var url = flow2Base + "?" + flow2Fixed + "&" + perPerson;
+
+    fetch(url, { method: "GET" })
+      .then(function(r) {
+        if (r.ok || r.status === 200 || r.status === 202) {
+          statusDiv.className = "status success";
+          statusDiv.textContent =
+            "Thank you " + name
+            + "! Your timesheet status has been updated to Submitted.";
+          btn.textContent = "Confirmed";
+          document.getElementById("member-select").disabled = true;
+        } else {
+          throw new Error("HTTP " + r.status);
+        }
+      })
+      .catch(function(err) {
+        statusDiv.className = "status error";
+        statusDiv.textContent =
+          "Update failed (" + err.message
+          + "). Please contact your admin or update the tracker manually.";
+        btn.disabled = false;
+        btn.textContent = "Confirm - Yes I have submitted";
+      });
+  }
+
+  init();
+</script>
+</body>
+</html>
