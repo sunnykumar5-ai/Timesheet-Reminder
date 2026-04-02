@@ -35,34 +35,86 @@
   }
   h2 { font-size: 18px; color: #1F3864; margin-bottom: 6px; }
   .subtitle { font-size: 13px; color: #888; margin-bottom: 24px; }
-  label {
+  .loading-box {
+    background: #f0f4ff;
+    border-left: 4px solid #1F3864;
+    border-radius: 4px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 24px;
+  }
+  .info-box {
+    background: #f0f4ff;
+    border-left: 4px solid #1F3864;
+    border-radius: 4px;
+    padding: 14px;
+    font-size: 13px;
+    color: #333;
+    margin-bottom: 24px;
+    display: none;
+  }
+  .info-box .name-tag {
+    font-size: 17px;
+    font-weight: bold;
+    color: #1F3864;
+    margin-bottom: 4px;
+  }
+  .info-box .id-tag {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 6px;
+  }
+  .info-box .types-tag {
+    font-size: 12px;
+    color: #444;
+  }
+  .not-found {
+    background: #FCE4D6;
+    color: #9C0006;
+    border-left: 4px solid #9C0006;
+    border-radius: 4px;
+    padding: 12px 14px;
+    font-size: 13px;
+    margin-bottom: 20px;
+    display: none;
+  }
+  .fallback-box {
+    display: none;
+    margin-bottom: 20px;
+  }
+  .fallback-box label {
     display: block;
     font-size: 13px;
     font-weight: bold;
     color: #444;
     margin-bottom: 6px;
   }
-  select {
-    width: 100%;
+  .input-row {
+    display: flex;
+    gap: 8px;
+  }
+  input[type="text"] {
+    flex: 1;
     padding: 10px 12px;
     border: 1px solid #ccc;
     border-radius: 6px;
     font-size: 14px;
     color: #333;
     background: #fafafa;
-    margin-bottom: 20px;
   }
-  select:focus { outline: none; border-color: #1F3864; }
-  .info-box {
-    background: #f0f4ff;
-    border-left: 4px solid #1F3864;
-    border-radius: 4px;
-    padding: 10px 14px;
+  input[type="text"]:focus { outline: none; border-color: #1F3864; }
+  .btn-lookup {
+    padding: 10px 16px;
+    background: #1F3864;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
     font-size: 13px;
-    color: #333;
-    margin-bottom: 24px;
-    display: none;
+    font-weight: bold;
+    cursor: pointer;
   }
+  .btn-lookup:hover { background: #162d4e; }
   .btn {
     width: 100%;
     padding: 12px;
@@ -85,17 +137,11 @@
   .status.success { background: #C6EFCE; color: #375623; display: block; }
   .status.error   { background: #FCE4D6; color: #9C0006; display: block; }
   .status.loading { background: #FFF3CD; color: #856404; display: block; }
-  .week-info { font-size: 12px; color: #aaa; margin-top: 18px; text-align: center; }
-  .debug-box {
-    background: #f8f8f8;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 8px 12px;
-    font-size: 11px;
-    color: #888;
-    margin-top: 12px;
-    word-break: break-all;
-    display: none;
+  .week-info {
+    font-size: 12px;
+    color: #aaa;
+    margin-top: 18px;
+    text-align: center;
   }
 </style>
 </head>
@@ -105,35 +151,60 @@
   <h2>Confirm Submission</h2>
   <p class="subtitle">Week ending <span id="week-date">...</span></p>
 
-  <label for="member-select">Select your name</label>
-  <select id="member-select">
-    <option value="">-- Select your name --</option>
-  </select>
-
-  <div class="info-box" id="info-box">
-    Confirming submission for: <strong id="confirm-name"></strong><br>
-    Timesheet types: <span id="confirm-types"></span>
+  <div class="loading-box" id="loading-box">
+    Identifying you from your Cognizant account...
   </div>
 
-  <button class="btn btn-confirm" id="confirm-btn" disabled onclick="confirmSubmission()">
+  <div class="info-box" id="info-box">
+    <div class="name-tag" id="confirm-name"></div>
+    <div class="id-tag">Associate ID: <span id="confirm-id"></span></div>
+    <div class="types-tag">Pending: <span id="confirm-types"></span></div>
+  </div>
+
+  <div class="not-found" id="not-found"></div>
+
+  <div class="fallback-box" id="fallback-box">
+    <label>Enter your Associate ID manually</label>
+    <div class="input-row">
+      <input type="text" id="assoc-input" placeholder="e.g. 2383028"
+             maxlength="20" onkeydown="handleKey(event)"/>
+      <button class="btn-lookup" onclick="manualLookup()">Look up</button>
+    </div>
+  </div>
+
+  <button class="btn btn-confirm" id="confirm-btn"
+          disabled onclick="confirmSubmission()">
     Confirm - Yes I have submitted
   </button>
 
   <div class="status" id="status-msg"></div>
   <div class="week-info" id="week-info"></div>
-  <div class="debug-box" id="debug-box"></div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/msal.js/2.38.3/msal-browser.min.js"></script>
 <script>
-  var flow2Base  = "";
-  var flow2Fixed = "";
-  var weekFriday = "";
-  var sheetName  = "";
+  var flow2Base      = "";
+  var flow2Fixed     = "";
+  var weekFriday     = "";
+  var sheetName      = "";
+  var members        = [];
+  var selectedMember = null;
+
+  // ── MSAL config ─────────────────────────────────────────────
+  // Uses Cognizant's Azure AD tenant
+  var msalConfig = {
+    auth: {
+      clientId   : "04b07795-8ddb-461a-bbee-02f9e1bf7b46", // Azure CLI public client
+      authority  : "https://login.microsoftonline.com/common",
+      redirectUri: window.location.href.split("?")[0],
+    },
+    cache: { cacheLocation: "sessionStorage" },
+  };
+  var msalInstance = new msal.PublicClientApplication(msalConfig);
 
   function getParams() {
     var result = {};
     var qs = window.location.search.substring(1);
-    // handle both & and &amp; separators (Teams sometimes encodes &)
     qs = qs.replace(/&amp;/g, "&");
     qs.split("&").forEach(function(part) {
       var eq = part.indexOf("=");
@@ -148,12 +219,11 @@
 
   function init() {
     var params = getParams();
-
-    weekFriday  = params["week_friday"]  || "";
-    sheetName   = params["sheet_name"]   || "";
-    flow2Base   = params["flow2_base"]   || "";
-    flow2Fixed  = params["flow2_params"] || "";
-    var membersRaw = params["members"]   || "";
+    weekFriday = params["week_friday"]  || "";
+    sheetName  = params["sheet_name"]   || "";
+    flow2Base  = params["flow2_base"]   || "";
+    flow2Fixed = params["flow2_params"] || "";
+    var membersRaw = params["members"]  || "";
 
     if (weekFriday) {
       document.getElementById("week-date").textContent = weekFriday;
@@ -161,8 +231,7 @@
         "Week: " + weekFriday + "  |  Sheet: " + sheetName;
     }
 
-    // Parse pipe-separated members: id|name|types~~id|name|types
-    var members = [];
+    members = [];
     if (membersRaw) {
       membersRaw.split("~~").forEach(function(entry) {
         var parts = entry.split("|");
@@ -176,72 +245,156 @@
       });
     }
 
-    // Show debug info if no members found
-    if (members.length === 0) {
-      var dbg = document.getElementById("debug-box");
-      dbg.style.display = "block";
-      dbg.textContent = "No members parsed. Raw members param: ["
-        + membersRaw + "] | Full URL: " + window.location.search;
+    // Try to get logged in user automatically
+    autoIdentify();
+  }
+
+  async function autoIdentify() {
+    try {
+      await msalInstance.initialize();
+
+      // Handle redirect response first
+      await msalInstance.handleRedirectPromise();
+
+      var accounts = msalInstance.getAllAccounts();
+      var loginHint = accounts.length > 0 ? accounts[0].username : null;
+
+      var tokenRequest = {
+        scopes    : ["User.Read"],
+        loginHint : loginHint,
+      };
+
+      var tokenResponse;
+      try {
+        // Try silent first
+        tokenResponse = await msalInstance.acquireTokenSilent({
+          ...tokenRequest,
+          account: accounts[0],
+        });
+      } catch (silentErr) {
+        // Silent failed — try popup
+        try {
+          tokenResponse = await msalInstance.acquireTokenPopup(tokenRequest);
+        } catch (popupErr) {
+          // Popup blocked or failed — show manual fallback
+          showFallback("Could not auto-identify. Please enter your Associate ID.");
+          return;
+        }
+      }
+
+      // Got token — call Graph API to get user details
+      var graphResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
+        headers: { Authorization: "Bearer " + tokenResponse.accessToken }
+      });
+      var user = await graphResponse.json();
+
+      // Extract associate ID from email (part before @)
+      var email    = user.userPrincipalName || user.mail || "";
+      var assocId  = email.split("@")[0].trim();
+      var fullName = user.displayName || assocId;
+
+      document.getElementById("loading-box").style.display = "none";
+
+      // Match against pending members list
+      var found = null;
+      for (var i = 0; i < members.length; i++) {
+        if (members[i].id.toLowerCase() === assocId.toLowerCase()) {
+          found = members[i];
+          break;
+        }
+      }
+
+      if (found) {
+        selectedMember = found;
+        showMember(found);
+      } else {
+        // Person is not in pending list
+        var notFound = document.getElementById("not-found");
+        notFound.style.display = "block";
+        notFound.textContent   =
+          "Hi " + fullName + " (" + assocId + ") — your timesheet "
+          + "is not in the pending list. It may already be marked as "
+          + "submitted, or contact your manager.";
+        document.getElementById("confirm-btn").disabled = true;
+      }
+
+    } catch (err) {
+      showFallback("Auto-identification failed. Please enter your Associate ID.");
+    }
+  }
+
+  function showMember(m) {
+    document.getElementById("confirm-name").textContent  = m.name;
+    document.getElementById("confirm-id").textContent    = m.id;
+    document.getElementById("confirm-types").textContent =
+      m.types.replace(/,/g, ", ");
+    document.getElementById("info-box").style.display    = "block";
+    document.getElementById("confirm-btn").disabled      = false;
+  }
+
+  function showFallback(msg) {
+    document.getElementById("loading-box").style.display  = "none";
+    document.getElementById("not-found").style.display    = "block";
+    document.getElementById("not-found").textContent      = msg;
+    document.getElementById("fallback-box").style.display = "block";
+  }
+
+  function handleKey(e) {
+    if (e.key === "Enter") manualLookup();
+  }
+
+  function manualLookup() {
+    var input = document.getElementById("assoc-input").value.trim();
+    if (!input) return;
+
+    var found = null;
+    for (var i = 0; i < members.length; i++) {
+      if (members[i].id.toLowerCase() === input.toLowerCase()) {
+        found = members[i];
+        break;
+      }
     }
 
-    var sel = document.getElementById("member-select");
-    members.forEach(function(m) {
-      var opt = document.createElement("option");
-      opt.value = m.id;
-      opt.textContent = m.name + " (" + m.id + ")";
-      opt.setAttribute("data-name",  m.name);
-      opt.setAttribute("data-types", m.types);
-      sel.appendChild(opt);
-    });
+    document.getElementById("not-found").style.display = "none";
 
-    sel.addEventListener("change", function() {
-      var selected = sel.options[sel.selectedIndex];
-      var btn = document.getElementById("confirm-btn");
-      var box = document.getElementById("info-box");
-      if (sel.value) {
-        document.getElementById("confirm-name").textContent =
-          selected.getAttribute("data-name");
-        document.getElementById("confirm-types").textContent =
-          selected.getAttribute("data-types").replace(/,/g, ", ");
-        box.style.display = "block";
-        btn.disabled = false;
-      } else {
-        box.style.display = "none";
-        btn.disabled = true;
-      }
-      var s = document.getElementById("status-msg");
-      s.className = "status";
-      s.textContent = "";
-    });
+    if (found) {
+      selectedMember = found;
+      document.getElementById("fallback-box").style.display = "none";
+      showMember(found);
+    } else {
+      selectedMember = null;
+      var notFound = document.getElementById("not-found");
+      notFound.style.display = "block";
+      notFound.textContent   =
+        "Associate ID " + input + " not found in pending list. "
+        + "Check your ID or contact your manager.";
+      document.getElementById("confirm-btn").disabled = true;
+    }
   }
 
   function confirmSubmission() {
-    var sel     = document.getElementById("member-select");
-    var assocId = sel.value;
-    if (!assocId) return;
+    if (!selectedMember) return;
 
-    var selected  = sel.options[sel.selectedIndex];
-    var name      = selected.getAttribute("data-name");
-    var types     = selected.getAttribute("data-types");
     var statusDiv = document.getElementById("status-msg");
     var btn       = document.getElementById("confirm-btn");
 
     if (!flow2Base || !flow2Fixed || !weekFriday || !sheetName) {
-      statusDiv.className = "status error";
+      statusDiv.className   = "status error";
       statusDiv.textContent =
         "Configuration error - missing parameters. Contact your admin.";
       return;
     }
 
-    btn.disabled = true;
-    btn.textContent = "Submitting...";
-    statusDiv.className = "status loading";
-    statusDiv.textContent = "Updating tracker for " + name + "...";
+    btn.disabled          = true;
+    btn.textContent       = "Submitting...";
+    statusDiv.className   = "status loading";
+    statusDiv.textContent =
+      "Updating tracker for " + selectedMember.name + "...";
 
     var perPerson =
-        "associate_id="     + encodeURIComponent(assocId)
+        "associate_id="     + encodeURIComponent(selectedMember.id)
       + "&week_friday="     + encodeURIComponent(weekFriday)
-      + "&timesheet_types=" + encodeURIComponent(types)
+      + "&timesheet_types=" + encodeURIComponent(selectedMember.types)
       + "&sheet_name="      + encodeURIComponent(sheetName);
 
     var url = flow2Base + "?" + flow2Fixed + "&" + perPerson;
@@ -249,22 +402,23 @@
     fetch(url, { method: "GET" })
       .then(function(r) {
         if (r.ok || r.status === 200 || r.status === 202) {
-          statusDiv.className = "status success";
+          statusDiv.className   = "status success";
           statusDiv.textContent =
-            "Thank you " + name
+            "Thank you " + selectedMember.name
             + "! Your timesheet status has been updated to Submitted.";
           btn.textContent = "Confirmed";
-          document.getElementById("member-select").disabled = true;
+          document.getElementById("assoc-input") &&
+            (document.getElementById("assoc-input").disabled = true);
         } else {
           throw new Error("HTTP " + r.status);
         }
       })
       .catch(function(err) {
-        statusDiv.className = "status error";
+        statusDiv.className   = "status error";
         statusDiv.textContent =
           "Update failed (" + err.message
-          + "). Please contact your admin or update the tracker manually.";
-        btn.disabled = false;
+          + "). Please update the tracker manually or contact your admin.";
+        btn.disabled    = false;
         btn.textContent = "Confirm - Yes I have submitted";
       });
   }
