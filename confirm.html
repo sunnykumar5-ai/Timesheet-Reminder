@@ -35,15 +35,39 @@
   }
   h2 { font-size: 18px; color: #1F3864; margin-bottom: 6px; }
   .subtitle { font-size: 13px; color: #888; margin-bottom: 24px; }
-  .loading-box {
-    background: #f0f4ff;
-    border-left: 4px solid #1F3864;
-    border-radius: 4px;
-    padding: 12px 14px;
+  label {
+    display: block;
     font-size: 13px;
-    color: #555;
-    margin-bottom: 24px;
+    font-weight: bold;
+    color: #444;
+    margin-bottom: 6px;
   }
+  .input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  input[type="text"] {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #333;
+    background: #fafafa;
+  }
+  input[type="text"]:focus { outline: none; border-color: #1F3864; }
+  .btn-lookup {
+    padding: 10px 18px;
+    background: #1F3864;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .btn-lookup:hover { background: #162d4e; }
   .info-box {
     background: #f0f4ff;
     border-left: 4px solid #1F3864;
@@ -79,42 +103,6 @@
     margin-bottom: 20px;
     display: none;
   }
-  .fallback-box {
-    display: none;
-    margin-bottom: 20px;
-  }
-  .fallback-box label {
-    display: block;
-    font-size: 13px;
-    font-weight: bold;
-    color: #444;
-    margin-bottom: 6px;
-  }
-  .input-row {
-    display: flex;
-    gap: 8px;
-  }
-  input[type="text"] {
-    flex: 1;
-    padding: 10px 12px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    font-size: 14px;
-    color: #333;
-    background: #fafafa;
-  }
-  input[type="text"]:focus { outline: none; border-color: #1F3864; }
-  .btn-lookup {
-    padding: 10px 16px;
-    background: #1F3864;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: bold;
-    cursor: pointer;
-  }
-  .btn-lookup:hover { background: #162d4e; }
   .btn {
     width: 100%;
     padding: 12px;
@@ -151,25 +139,22 @@
   <h2>Confirm Submission</h2>
   <p class="subtitle">Week ending <span id="week-date">...</span></p>
 
-  <div class="loading-box" id="loading-box">
-    Identifying you from your Cognizant account...
+  <label for="assoc-input">Enter your Associate ID</label>
+  <div class="input-row">
+    <input type="text" id="assoc-input"
+           placeholder="e.g. 2383028"
+           maxlength="20"
+           oninput="clearResult()"
+           onkeydown="handleKey(event)"/>
+    <button class="btn-lookup" onclick="lookupMember()">Look up</button>
   </div>
+
+  <div class="not-found" id="not-found"></div>
 
   <div class="info-box" id="info-box">
     <div class="name-tag" id="confirm-name"></div>
     <div class="id-tag">Associate ID: <span id="confirm-id"></span></div>
     <div class="types-tag">Pending: <span id="confirm-types"></span></div>
-  </div>
-
-  <div class="not-found" id="not-found"></div>
-
-  <div class="fallback-box" id="fallback-box">
-    <label>Enter your Associate ID manually</label>
-    <div class="input-row">
-      <input type="text" id="assoc-input" placeholder="e.g. 2383028"
-             maxlength="20" onkeydown="handleKey(event)"/>
-      <button class="btn-lookup" onclick="manualLookup()">Look up</button>
-    </div>
   </div>
 
   <button class="btn btn-confirm" id="confirm-btn"
@@ -181,7 +166,6 @@
   <div class="week-info" id="week-info"></div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/msal.js/2.38.3/msal-browser.min.js"></script>
 <script>
   var flow2Base      = "";
   var flow2Fixed     = "";
@@ -189,18 +173,6 @@
   var sheetName      = "";
   var members        = [];
   var selectedMember = null;
-
-  // ── MSAL config ─────────────────────────────────────────────
-  // Uses Cognizant's Azure AD tenant
-  var msalConfig = {
-    auth: {
-      clientId   : "04b07795-8ddb-461a-bbee-02f9e1bf7b46", // Azure CLI public client
-      authority  : "https://login.microsoftonline.com/common",
-      redirectUri: window.location.href.split("?")[0],
-    },
-    cache: { cacheLocation: "sessionStorage" },
-  };
-  var msalInstance = new msal.PublicClientApplication(msalConfig);
 
   function getParams() {
     var result = {};
@@ -245,105 +217,25 @@
       });
     }
 
-    // Try to get logged in user automatically
-    autoIdentify();
-  }
-
-  async function autoIdentify() {
-    try {
-      await msalInstance.initialize();
-
-      // Handle redirect response first
-      await msalInstance.handleRedirectPromise();
-
-      var accounts = msalInstance.getAllAccounts();
-      var loginHint = accounts.length > 0 ? accounts[0].username : null;
-
-      var tokenRequest = {
-        scopes    : ["User.Read"],
-        loginHint : loginHint,
-      };
-
-      var tokenResponse;
-      try {
-        // Try silent first
-        tokenResponse = await msalInstance.acquireTokenSilent({
-          ...tokenRequest,
-          account: accounts[0],
-        });
-      } catch (silentErr) {
-        // Silent failed — try popup
-        try {
-          tokenResponse = await msalInstance.acquireTokenPopup(tokenRequest);
-        } catch (popupErr) {
-          // Popup blocked or failed — show manual fallback
-          showFallback("Could not auto-identify. Please enter your Associate ID.");
-          return;
-        }
-      }
-
-      // Got token — call Graph API to get user details
-      var graphResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
-        headers: { Authorization: "Bearer " + tokenResponse.accessToken }
-      });
-      var user = await graphResponse.json();
-
-      // Extract associate ID from email (part before @)
-      var email    = user.userPrincipalName || user.mail || "";
-      var assocId  = email.split("@")[0].trim();
-      var fullName = user.displayName || assocId;
-
-      document.getElementById("loading-box").style.display = "none";
-
-      // Match against pending members list
-      var found = null;
-      for (var i = 0; i < members.length; i++) {
-        if (members[i].id.toLowerCase() === assocId.toLowerCase()) {
-          found = members[i];
-          break;
-        }
-      }
-
-      if (found) {
-        selectedMember = found;
-        showMember(found);
-      } else {
-        // Person is not in pending list
-        var notFound = document.getElementById("not-found");
-        notFound.style.display = "block";
-        notFound.textContent   =
-          "Hi " + fullName + " (" + assocId + ") — your timesheet "
-          + "is not in the pending list. It may already be marked as "
-          + "submitted, or contact your manager.";
-        document.getElementById("confirm-btn").disabled = true;
-      }
-
-    } catch (err) {
-      showFallback("Auto-identification failed. Please enter your Associate ID.");
-    }
-  }
-
-  function showMember(m) {
-    document.getElementById("confirm-name").textContent  = m.name;
-    document.getElementById("confirm-id").textContent    = m.id;
-    document.getElementById("confirm-types").textContent =
-      m.types.replace(/,/g, ", ");
-    document.getElementById("info-box").style.display    = "block";
-    document.getElementById("confirm-btn").disabled      = false;
-  }
-
-  function showFallback(msg) {
-    document.getElementById("loading-box").style.display  = "none";
-    document.getElementById("not-found").style.display    = "block";
-    document.getElementById("not-found").textContent      = msg;
-    document.getElementById("fallback-box").style.display = "block";
+    // Auto focus the input
+    document.getElementById("assoc-input").focus();
   }
 
   function handleKey(e) {
-    if (e.key === "Enter") manualLookup();
+    if (e.key === "Enter") lookupMember();
   }
 
-  function manualLookup() {
+  function clearResult() {
+    selectedMember = null;
+    document.getElementById("info-box").style.display  = "none";
+    document.getElementById("not-found").style.display = "none";
+    document.getElementById("confirm-btn").disabled    = true;
+    var s = document.getElementById("status-msg");
+    s.className   = "status";
+    s.textContent = "";
+  }
+
+  function lookupMember() {
     var input = document.getElementById("assoc-input").value.trim();
     if (!input) return;
 
@@ -355,20 +247,27 @@
       }
     }
 
-    document.getElementById("not-found").style.display = "none";
+    var infoBox  = document.getElementById("info-box");
+    var notFound = document.getElementById("not-found");
+    var btn      = document.getElementById("confirm-btn");
 
     if (found) {
       selectedMember = found;
-      document.getElementById("fallback-box").style.display = "none";
-      showMember(found);
+      document.getElementById("confirm-name").textContent  = found.name;
+      document.getElementById("confirm-id").textContent    = found.id;
+      document.getElementById("confirm-types").textContent =
+        found.types.replace(/,/g, ", ");
+      infoBox.style.display  = "block";
+      notFound.style.display = "none";
+      btn.disabled = false;
     } else {
-      selectedMember = null;
-      var notFound = document.getElementById("not-found");
+      selectedMember         = null;
+      infoBox.style.display  = "none";
       notFound.style.display = "block";
       notFound.textContent   =
-        "Associate ID " + input + " not found in pending list. "
-        + "Check your ID or contact your manager.";
-      document.getElementById("confirm-btn").disabled = true;
+        "Associate ID \"" + input + "\" not found in pending list. "
+        + "Your timesheet may already be submitted, or check your ID.";
+      btn.disabled = true;
     }
   }
 
@@ -407,8 +306,7 @@
             "Thank you " + selectedMember.name
             + "! Your timesheet status has been updated to Submitted.";
           btn.textContent = "Confirmed";
-          document.getElementById("assoc-input") &&
-            (document.getElementById("assoc-input").disabled = true);
+          document.getElementById("assoc-input").disabled = true;
         } else {
           throw new Error("HTTP " + r.status);
         }
