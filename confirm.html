@@ -1,327 +1,295 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Timesheet Confirmation</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: Arial, sans-serif;
-    background: #f4f6fa;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 20px;
-  }
-  .card {
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 2px 16px rgba(0,0,0,0.10);
-    padding: 36px 32px;
-    max-width: 440px;
-    width: 100%;
-  }
-  .logo {
-    background: #1F3864;
-    color: #fff;
-    border-radius: 8px;
-    padding: 10px 18px;
-    font-size: 15px;
-    font-weight: bold;
-    display: inline-block;
-    margin-bottom: 24px;
-  }
-  h2 { font-size: 18px; color: #1F3864; margin-bottom: 6px; }
-  .subtitle { font-size: 13px; color: #888; margin-bottom: 24px; }
-  label {
-    display: block;
-    font-size: 13px;
-    font-weight: bold;
-    color: #444;
-    margin-bottom: 6px;
-  }
-  .input-row {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 20px;
-  }
-  input[type="text"] {
-    flex: 1;
-    padding: 10px 12px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    font-size: 14px;
-    color: #333;
-    background: #fafafa;
-  }
-  input[type="text"]:focus { outline: none; border-color: #1F3864; }
-  .btn-lookup {
-    padding: 10px 18px;
-    background: #1F3864;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: bold;
-    cursor: pointer;
-  }
-  .btn-lookup:hover { background: #162d4e; }
-  .info-box {
-    background: #f0f4ff;
-    border-left: 4px solid #1F3864;
-    border-radius: 4px;
-    padding: 14px;
-    font-size: 13px;
-    color: #333;
-    margin-bottom: 24px;
-    display: none;
-  }
-  .info-box .name-tag {
-    font-size: 17px;
-    font-weight: bold;
-    color: #1F3864;
-    margin-bottom: 4px;
-  }
-  .info-box .id-tag {
-    font-size: 12px;
-    color: #666;
-    margin-bottom: 6px;
-  }
-  .info-box .types-tag {
-    font-size: 12px;
-    color: #444;
-  }
-  .not-found {
-    background: #FCE4D6;
-    color: #9C0006;
-    border-left: 4px solid #9C0006;
-    border-radius: 4px;
-    padding: 12px 14px;
-    font-size: 13px;
-    margin-bottom: 20px;
-    display: none;
-  }
-  .btn {
-    width: 100%;
-    padding: 12px;
-    border: none;
-    border-radius: 6px;
-    font-size: 15px;
-    font-weight: bold;
-    cursor: pointer;
-  }
-  .btn-confirm { background: #1F7A3A; color: #fff; }
-  .btn-confirm:hover { background: #165c2b; }
-  .btn-confirm:disabled { background: #aaa; cursor: not-allowed; }
-  .status {
-    margin-top: 18px;
-    padding: 12px 16px;
-    border-radius: 6px;
-    font-size: 14px;
-    display: none;
-  }
-  .status.success { background: #C6EFCE; color: #375623; display: block; }
-  .status.error   { background: #FCE4D6; color: #9C0006; display: block; }
-  .status.loading { background: #FFF3CD; color: #856404; display: block; }
-  .week-info {
-    font-size: 12px;
-    color: #aaa;
-    margin-top: 18px;
-    text-align: center;
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timesheet Submission Confirmation</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: #f4f6fa;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(31,56,100,.12);
+            max-width: 460px;
+            width: 100%;
+            overflow: hidden;
+        }
+        .card-header {
+            background: #1F3864;
+            color: #fff;
+            padding: 28px 32px;
+            text-align: center;
+        }
+        .card-header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .card-header p {
+            font-size: 13px;
+            opacity: .75;
+            font-weight: 300;
+        }
+        .card-body {
+            padding: 32px;
+        }
+        .field {
+            margin-bottom: 20px;
+        }
+        .field label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: #1F3864;
+            margin-bottom: 6px;
+        }
+        .field input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e4ea;
+            border-radius: 10px;
+            font-size: 15px;
+            font-family: 'Outfit', sans-serif;
+            transition: border-color .2s;
+            outline: none;
+        }
+        .field input:focus {
+            border-color: #1F3864;
+            box-shadow: 0 0 0 3px rgba(31,56,100,.1);
+        }
+        .field input:read-only {
+            background: #f8f9fb;
+            color: #666;
+        }
+        .info-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .info-box {
+            flex: 1;
+            background: #f0f4fa;
+            border-radius: 10px;
+            padding: 12px 14px;
+            text-align: center;
+        }
+        .info-box .lbl {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 2px;
+        }
+        .info-box .val {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1F3864;
+        }
+        .ts-list {
+            margin-bottom: 24px;
+        }
+        .ts-list .lbl {
+            font-size: 13px;
+            font-weight: 500;
+            color: #1F3864;
+            margin-bottom: 8px;
+        }
+        .ts-tag {
+            display: inline-block;
+            background: #D6E4F0;
+            color: #1F3864;
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            margin: 3px 4px 3px 0;
+        }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            font-family: 'Outfit', sans-serif;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        .btn-submit {
+            background: #375623;
+            color: #fff;
+        }
+        .btn-submit:hover {
+            background: #2a4419;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(55,86,35,.3);
+        }
+        .btn-submit:disabled {
+            background: #aaa;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 14px 18px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            display: none;
+            text-align: center;
+        }
+        .status.success {
+            display: block;
+            background: #C6EFCE;
+            color: #375623;
+        }
+        .status.error {
+            display: block;
+            background: #FCE4D6;
+            color: #9C0006;
+        }
+        .status.loading {
+            display: block;
+            background: #D6E4F0;
+            color: #1F3864;
+        }
+        .footer {
+            text-align: center;
+            padding: 0 32px 24px;
+            font-size: 11px;
+            color: #aaa;
+        }
+    </style>
 </head>
 <body>
-<div class="card">
-  <div class="logo">Cognizant Timesheet</div>
-  <h2>Confirm Submission</h2>
-  <p class="subtitle">Week ending <span id="week-date">...</span></p>
+    <div class="card">
+        <div class="card-header">
+            <h1>Timesheet Submission Confirmation</h1>
+            <p id="headerInfo">Confirm that you have submitted your timesheets</p>
+        </div>
+        <div class="card-body">
+            <div class="field">
+                <label for="assocId">Your Associate ID</label>
+                <input type="text" id="assocId" placeholder="Enter your Associate ID (e.g. 2383028)" autofocus>
+            </div>
+            <div class="info-row">
+                <div class="info-box">
+                    <div class="lbl">Week Ending</div>
+                    <div class="val" id="weekFriday">--</div>
+                </div>
+                <div class="info-box">
+                    <div class="lbl">Sheet</div>
+                    <div class="val" id="sheetName">--</div>
+                </div>
+            </div>
+            <div class="ts-list">
+                <div class="lbl">Timesheet types to be marked as Submitted:</div>
+                <div id="tsTypes"></div>
+            </div>
+            <button class="btn btn-submit" id="submitBtn" onclick="submitConfirmation()">
+                Yes - I have submitted
+            </button>
+            <div class="status" id="statusMsg"></div>
+        </div>
+        <div class="footer">Timesheet Reminder Agent</div>
+    </div>
 
-  <label for="assoc-input">Enter your Associate ID</label>
-  <div class="input-row">
-    <input type="text" id="assoc-input"
-           placeholder="e.g. 2383028"
-           maxlength="20"
-           oninput="clearResult()"
-           onkeydown="handleKey(event)"/>
-    <button class="btn-lookup" onclick="lookupMember()">Look up</button>
-  </div>
+    <script>
+        // Parse URL parameters
+        var params = new URLSearchParams(window.location.search);
+        var weekFriday = params.get('week_friday') || '';
+        var sheetName = params.get('sheet_name') || '';
+        var flow2Base = params.get('flow2_base') || '';
+        var flow2Params = params.get('flow2_params') || '';
+        var timesheetTypes = (params.get('timesheet_types') || 'FG Timesheet,Cognizant Timesheet,PPMO Timesheet').split(',');
 
-  <div class="not-found" id="not-found"></div>
-
-  <div class="info-box" id="info-box">
-    <div class="name-tag" id="confirm-name"></div>
-    <div class="id-tag">Associate ID: <span id="confirm-id"></span></div>
-    <div class="types-tag">Pending: <span id="confirm-types"></span></div>
-  </div>
-
-  <button class="btn btn-confirm" id="confirm-btn"
-          disabled onclick="confirmSubmission()">
-    Confirm - Yes I have submitted
-  </button>
-
-  <div class="status" id="status-msg"></div>
-  <div class="week-info" id="week-info"></div>
-</div>
-
-<script>
-  var flow2Base      = "";
-  var flow2Fixed     = "";
-  var weekFriday     = "";
-  var sheetName      = "";
-  var members        = [];
-  var selectedMember = null;
-
-  function getParams() {
-    var result = {};
-    var qs = window.location.search.substring(1);
-    qs = qs.replace(/&amp;/g, "&");
-    qs.split("&").forEach(function(part) {
-      var eq = part.indexOf("=");
-      if (eq > -1) {
-        var key = decodeURIComponent(part.substring(0, eq).replace(/\+/g, " "));
-        var val = decodeURIComponent(part.substring(eq + 1).replace(/\+/g, " "));
-        result[key] = val;
-      }
-    });
-    return result;
-  }
-
-  function init() {
-    var params = getParams();
-    weekFriday = params["week_friday"]  || "";
-    sheetName  = params["sheet_name"]   || "";
-    flow2Base  = params["flow2_base"]   || "";
-    flow2Fixed = params["flow2_params"] || "";
-    var membersRaw = params["members"]  || "";
-
-    if (weekFriday) {
-      document.getElementById("week-date").textContent = weekFriday;
-      document.getElementById("week-info").textContent =
-        "Week: " + weekFriday + "  |  Sheet: " + sheetName;
-    }
-
-    members = [];
-    if (membersRaw) {
-      membersRaw.split("~~").forEach(function(entry) {
-        var parts = entry.split("|");
-        if (parts.length >= 3) {
-          members.push({
-            id   : parts[0].trim(),
-            name : parts[1].trim(),
-            types: parts[2].trim(),
-          });
+        // Display info
+        if (weekFriday) {
+            var d = new Date(weekFriday + 'T00:00:00');
+            var options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
+            document.getElementById('weekFriday').textContent = d.toLocaleDateString('en-GB', options);
         }
-      });
-    }
+        document.getElementById('sheetName').textContent = sheetName || '--';
 
-    // Auto focus the input
-    document.getElementById("assoc-input").focus();
-  }
+        // Show timesheet type tags
+        var tsContainer = document.getElementById('tsTypes');
+        timesheetTypes.forEach(function(t) {
+            t = t.trim();
+            if (t) {
+                var span = document.createElement('span');
+                span.className = 'ts-tag';
+                span.textContent = t;
+                tsContainer.appendChild(span);
+            }
+        });
 
-  function handleKey(e) {
-    if (e.key === "Enter") lookupMember();
-  }
-
-  function clearResult() {
-    selectedMember = null;
-    document.getElementById("info-box").style.display  = "none";
-    document.getElementById("not-found").style.display = "none";
-    document.getElementById("confirm-btn").disabled    = true;
-    var s = document.getElementById("status-msg");
-    s.className   = "status";
-    s.textContent = "";
-  }
-
-  function lookupMember() {
-    var input = document.getElementById("assoc-input").value.trim();
-    if (!input) return;
-
-    var found = null;
-    for (var i = 0; i < members.length; i++) {
-      if (members[i].id.toLowerCase() === input.toLowerCase()) {
-        found = members[i];
-        break;
-      }
-    }
-
-    var infoBox  = document.getElementById("info-box");
-    var notFound = document.getElementById("not-found");
-    var btn      = document.getElementById("confirm-btn");
-
-    if (found) {
-      selectedMember = found;
-      document.getElementById("confirm-name").textContent  = found.name;
-      document.getElementById("confirm-id").textContent    = found.id;
-      document.getElementById("confirm-types").textContent =
-        found.types.replace(/,/g, ", ");
-      infoBox.style.display  = "block";
-      notFound.style.display = "none";
-      btn.disabled = false;
-    } else {
-      selectedMember         = null;
-      infoBox.style.display  = "none";
-      notFound.style.display = "block";
-      notFound.textContent   =
-        "Associate ID \"" + input + "\" not found in pending list. "
-        + "Your timesheet may already be submitted, or check your ID.";
-      btn.disabled = true;
-    }
-  }
-
-  function confirmSubmission() {
-    if (!selectedMember) return;
-
-    var statusDiv = document.getElementById("status-msg");
-    var btn       = document.getElementById("confirm-btn");
-
-    if (!flow2Base || !flow2Fixed || !weekFriday || !sheetName) {
-      statusDiv.className   = "status error";
-      statusDiv.textContent =
-        "Configuration error - missing parameters. Contact your admin.";
-      return;
-    }
-
-    btn.disabled          = true;
-    btn.textContent       = "Submitting...";
-    statusDiv.className   = "status loading";
-    statusDiv.textContent =
-      "Updating tracker for " + selectedMember.name + "...";
-
-    var perPerson =
-        "associate_id="     + encodeURIComponent(selectedMember.id)
-      + "&week_friday="     + encodeURIComponent(weekFriday)
-      + "&timesheet_types=" + encodeURIComponent(selectedMember.types)
-      + "&sheet_name="      + encodeURIComponent(sheetName);
-
-    var url = flow2Base + "?" + flow2Fixed + "&" + perPerson;
-
-    fetch(url, { method: "GET" })
-      .then(function(r) {
-        if (r.ok || r.status === 200 || r.status === 202) {
-          statusDiv.className   = "status success";
-          statusDiv.textContent =
-            "Thank you " + selectedMember.name
-            + "! Your timesheet status has been updated to Submitted.";
-          btn.textContent = "Confirmed";
-          document.getElementById("assoc-input").disabled = true;
-        } else {
-          throw new Error("HTTP " + r.status);
+        function showStatus(msg, type) {
+            var el = document.getElementById('statusMsg');
+            el.className = 'status ' + type;
+            el.textContent = msg;
         }
-      })
-      .catch(function(err) {
-        statusDiv.className   = "status error";
-        statusDiv.textContent =
-          "Update failed (" + err.message
-          + "). Please update the tracker manually or contact your admin.";
-        btn.disabled    = false;
-        btn.textContent = "Confirm - Yes I have submitted";
-      });
-  }
 
-  init();
-</script>
+        function submitConfirmation() {
+            var assocId = document.getElementById('assocId').value.trim();
+            if (!assocId) {
+                showStatus('Please enter your Associate ID', 'error');
+                return;
+            }
+            if (!flow2Base) {
+                showStatus('Flow URL not configured. Please contact your admin.', 'error');
+                return;
+            }
+
+            var btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.textContent = 'Submitting...';
+            showStatus('Updating your timesheet status...', 'loading');
+
+            var flow2Url = flow2Base + '?' + flow2Params;
+
+            var payload = {
+                associateId: assocId,
+                weekFriday: weekFriday,
+                sheetName: sheetName,
+                timesheetTypes: timesheetTypes.join(',')
+            };
+
+            fetch(flow2Url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(function(response) {
+                if (response.ok || response.status === 202) {
+                    btn.textContent = 'Submitted!';
+                    btn.style.background = '#375623';
+                    showStatus('Your timesheet status has been updated to Submitted. You can close this page.', 'success');
+                } else {
+                    throw new Error('Status ' + response.status);
+                }
+            })
+            .catch(function(err) {
+                btn.disabled = false;
+                btn.textContent = 'Yes - I have submitted';
+                showStatus('Error: ' + err.message + '. Please try again or contact your admin.', 'error');
+            });
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('assocId').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                submitConfirmation();
+            }
+        });
+    </script>
 </body>
 </html>
