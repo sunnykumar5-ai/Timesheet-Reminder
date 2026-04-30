@@ -67,10 +67,6 @@
             border-color: #1F3864;
             box-shadow: 0 0 0 3px rgba(31,56,100,.1);
         }
-        .field input:read-only {
-            background: #f8f9fb;
-            color: #666;
-        }
         .info-row {
             display: flex;
             gap: 12px;
@@ -146,6 +142,7 @@
             font-weight: 500;
             display: none;
             text-align: center;
+            line-height: 1.5;
         }
         .status.success {
             display: block;
@@ -174,7 +171,7 @@
     <div class="card">
         <div class="card-header">
             <h1>Timesheet Submission Confirmation</h1>
-            <p id="headerInfo">Confirm that you have submitted your timesheets</p>
+            <p>Confirm that you have submitted your timesheets</p>
         </div>
         <div class="card-body">
             <div class="field">
@@ -214,9 +211,13 @@
 
         // Display info
         if (weekFriday) {
-            var d = new Date(weekFriday + 'T00:00:00');
-            var options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
-            document.getElementById('weekFriday').textContent = d.toLocaleDateString('en-GB', options);
+            try {
+                var d = new Date(weekFriday + 'T00:00:00');
+                var options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
+                document.getElementById('weekFriday').textContent = d.toLocaleDateString('en-GB', options);
+            } catch(e) {
+                document.getElementById('weekFriday').textContent = weekFriday;
+            }
         }
         document.getElementById('sheetName').textContent = sheetName || '--';
 
@@ -235,13 +236,17 @@
         function showStatus(msg, type) {
             var el = document.getElementById('statusMsg');
             el.className = 'status ' + type;
-            el.textContent = msg;
+            el.innerHTML = msg;
         }
 
         function submitConfirmation() {
             var assocId = document.getElementById('assocId').value.trim();
             if (!assocId) {
                 showStatus('Please enter your Associate ID', 'error');
+                return;
+            }
+            if (!/^\d+$/.test(assocId)) {
+                showStatus('Associate ID should contain only numbers', 'error');
                 return;
             }
             if (!flow2Base) {
@@ -252,7 +257,7 @@
             var btn = document.getElementById('submitBtn');
             btn.disabled = true;
             btn.textContent = 'Submitting...';
-            showStatus('Updating your timesheet status...', 'loading');
+            showStatus('Updating timesheet status for ID: ' + assocId + '...', 'loading');
 
             var flow2Url = flow2Base + '?' + flow2Params;
 
@@ -269,18 +274,44 @@
                 body: JSON.stringify(payload)
             })
             .then(function(response) {
-                if (response.ok || response.status === 202) {
-                    btn.textContent = 'Submitted!';
-                    btn.style.background = '#375623';
-                    showStatus('Your timesheet status has been updated to Submitted. You can close this page.', 'success');
-                } else {
-                    throw new Error('Status ' + response.status);
-                }
+                return response.text().then(function(text) {
+                    var data = null;
+                    try {
+                        data = JSON.parse(text);
+                    } catch(e) {
+                        // Response is not JSON (could be HTML success page)
+                    }
+
+                    if (response.ok || response.status === 202) {
+                        // Success
+                        if (data && data.message) {
+                            showStatus('&#10004; ' + data.message, 'success');
+                        } else {
+                            showStatus('&#10004; Timesheet status updated to <b>Submitted</b> for Associate ID: <b>' + assocId + '</b>.<br>You can close this page.', 'success');
+                        }
+                        btn.textContent = 'Submitted!';
+                        btn.style.background = '#375623';
+                    } else {
+                        // Error from Flow
+                        var errMsg = 'Associate ID <b>' + assocId + '</b> was not found in the tracker sheet.';
+                        if (data && data.message) {
+                            // Check if it's the "not found" error
+                            if (data.message.toLowerCase().indexOf('not found') !== -1) {
+                                errMsg = 'Associate ID <b>' + assocId + '</b> was not found in sheet <b>' + sheetName + '</b>.<br>Please check your ID and try again.';
+                            } else {
+                                errMsg = data.message;
+                            }
+                        }
+                        showStatus(errMsg, 'error');
+                        btn.disabled = false;
+                        btn.textContent = 'Yes - I have submitted';
+                    }
+                });
             })
             .catch(function(err) {
                 btn.disabled = false;
                 btn.textContent = 'Yes - I have submitted';
-                showStatus('Error: ' + err.message + '. Please try again or contact your admin.', 'error');
+                showStatus('Could not reach the server. Please try again.', 'error');
             });
         }
 
