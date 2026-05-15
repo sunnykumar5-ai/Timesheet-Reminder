@@ -149,6 +149,11 @@
             background: #C6EFCE;
             color: #375623;
         }
+        .status.warning {
+            display: block;
+            background: #FFF3CD;
+            color: #856404;
+        }
         .status.error {
             display: block;
             background: #FCE4D6;
@@ -201,7 +206,6 @@
     </div>
 
     <script>
-        // Parse URL parameters
         var params = new URLSearchParams(window.location.search);
         var weekFriday = params.get('week_friday') || '';
         var sheetName = params.get('sheet_name') || '';
@@ -209,7 +213,6 @@
         var flow2Params = params.get('flow2_params') || '';
         var timesheetTypes = (params.get('timesheet_types') || 'FG Timesheet,Cognizant Timesheet,PPMO Timesheet').split(',');
 
-        // Display info
         if (weekFriday) {
             try {
                 var d = new Date(weekFriday + 'T00:00:00');
@@ -221,7 +224,6 @@
         }
         document.getElementById('sheetName').textContent = sheetName || '--';
 
-        // Show timesheet type tags
         var tsContainer = document.getElementById('tsTypes');
         timesheetTypes.forEach(function(t) {
             t = t.trim();
@@ -242,11 +244,11 @@
         function submitConfirmation() {
             var assocId = document.getElementById('assocId').value.trim();
             if (!assocId) {
-                showStatus('Please enter your Associate ID', 'error');
+                showStatus('Please enter your Associate ID.', 'error');
                 return;
             }
             if (!/^\d+$/.test(assocId)) {
-                showStatus('Associate ID should contain only numbers', 'error');
+                showStatus('Associate ID should contain only numbers.', 'error');
                 return;
             }
             if (!flow2Base) {
@@ -279,43 +281,52 @@
                     try {
                         data = JSON.parse(text);
                     } catch(e) {
-                        // Response is not JSON (could be HTML success page)
+                        // Response is not JSON
                     }
 
                     if (response.ok || response.status === 202) {
-                        // Success
-                        if (data && data.message) {
+                        // 200 OK — check if actually updated or already submitted
+                        if (data && data.updated === false) {
+                            // Already submitted
+                            showStatus('&#9888; Timesheet status already updated for Associate ID: <b>' + assocId + '</b>.<br>No changes needed. You can close this page.', 'warning');
+                            btn.textContent = 'Already Submitted';
+                            btn.style.background = '#856404';
+                        } else if (data && data.message) {
+                            // Successfully updated
                             showStatus('&#10004; ' + data.message, 'success');
+                            btn.textContent = 'Submitted!';
+                            btn.style.background = '#375623';
                         } else {
+                            // Generic success (no JSON or old format)
                             showStatus('&#10004; Timesheet status updated to <b>Submitted</b> for Associate ID: <b>' + assocId + '</b>.<br>You can close this page.', 'success');
+                            btn.textContent = 'Submitted!';
+                            btn.style.background = '#375623';
                         }
-                        btn.textContent = 'Submitted!';
-                        btn.style.background = '#375623';
-                    } else {
-                        // Error from Flow
-                        var errMsg = 'Associate ID <b>' + assocId + '</b> was not found in the tracker sheet.';
+                    } else if (response.status === 400) {
+                        // Invalid Associate ID or not found
+                        var errMsg = 'Invalid Associate ID: <b>' + assocId + '</b>. Not found in the tracker sheet.<br>Please check your ID and try again.';
                         if (data && data.message) {
-                            // Check if it's the "not found" error
                             if (data.message.toLowerCase().indexOf('not found') !== -1) {
                                 errMsg = 'Associate ID <b>' + assocId + '</b> was not found in sheet <b>' + sheetName + '</b>.<br>Please check your ID and try again.';
                             } else {
                                 errMsg = data.message;
                             }
                         }
-                        showStatus(errMsg, 'error');
+                        showStatus('&#10060; ' + errMsg, 'error');
                         btn.disabled = false;
                         btn.textContent = 'Yes - I have submitted';
+                    } else {
+                        throw new Error('Status ' + response.status);
                     }
                 });
             })
             .catch(function(err) {
                 btn.disabled = false;
                 btn.textContent = 'Yes - I have submitted';
-                showStatus('Could not reach the server. Please try again.', 'error');
+                showStatus('&#10060; Could not reach the server. Please try again or contact your admin.', 'error');
             });
         }
 
-        // Allow Enter key to submit
         document.getElementById('assocId').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 submitConfirmation();
